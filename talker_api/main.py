@@ -16,7 +16,7 @@ app = FastAPI(title="Talker API")
 # Configuration
 MONGO_URL = os.environ["MONGO_URL"]
 LLM_URL = os.environ["LLM_URL"]
-LLM_TOKEN = os.environ["LLM_URL"]
+LLM_API_KEY = os.environ["LLM_API_KEY"]
 
 # Initialize shared memory tool
 memory_tool = SharedMemoryManagerTool(mongo_uri=MONGO_URL)
@@ -24,7 +24,7 @@ memory_tool = SharedMemoryManagerTool(mongo_uri=MONGO_URL)
 # Initialize LLM
 llm = ChatOpenAI(
     model="chat_model",
-    openai_api_key=LLM_TOKEN,
+    openai_api_key=LLM_API_KEY,
     openai_api_base=LLM_URL,
     temperature=0.8,
     max_tokens=1024,

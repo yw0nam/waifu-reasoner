@@ -26,6 +26,8 @@ services:
       "--served-model-name", "chat_model",
       "--port", "5500",
       "--chat-template", "/mnt/chat_templates/chatwaifu_qwen.jinja",
+      "--enable-auto-tool-choice",
+      "--tool-call-parser", "hermes",
       "--quantization", "bitsandbytes",
       "--load-format", "bitsandbytes",
     ]
