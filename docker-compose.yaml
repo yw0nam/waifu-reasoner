@@ -1,0 +1,69 @@
+version: '1.0'
+services:
+  vllm-openai:
+    container_name: test-llm
+    image: vllm/vllm-openai:v0.6.6.post1
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=2,3
+      - OMP_NUM_THREADS=8
+    volumes:
+      - /mnt/hdd1/model_weights/:/mnt/models_zoo/
+      - /mnt/hdd1/huggingface_cache/huggingface:/root/.cache/huggingface
+      - ./chat_templates:/mnt/chat_templates/
+    ipc: host
+    expose:
+      - 5500
+    ports:
+      - "5500:5500"
+    command: [
+      "--model", "/mnt/models_zoo/LLM/spow12/ChatWaifu_72B_v2.4/",
+      "--dtype", "bfloat16",
+      "--api-key", "token-abc123",
+      "--max-seq-len-to-capture", "32768",
+      "--max_model_len", "32768",
+      "--tensor-parallel-size", "2",
+      "--served-model-name", "chat_model",
+      "--port", "5500",
+      "--chat-template", "/mnt/chat_templates/chatwaifu_qwen.jinja",
+      "--quantization", "bitsandbytes",
+      "--load-format", "bitsandbytes",
+    ]
+  talker-api:
+    build: 
+      context: ./talker_api/
+    container_name: test_talker-api
+    restart: always
+    ports:
+      - 5501:5501
+    environment:
+      - MONGO_URL=mongodb://root:1234@mongodb:27017
+      - LLM_URL=http://vllm-openai:5500/v1
+      - LLM_API_KEY=token-abc123
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5501", "--reload"]
+
+  mongodb:
+    image: mongo:5.0.14
+    container_name: test_mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    expose:
+      - 27017
+    volumes:
+      - /mnt/hdd1/data/db/visual_novel/agent_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=1234
+      - MONGO_INITDB_DATABASE=visual_novel_db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: test_mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: 1234
+      ME_CONFIG_MONGODB_URL: mongodb://root:1234@mongodb:27017
