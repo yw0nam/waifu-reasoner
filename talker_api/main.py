@@ -1,13 +1,11 @@
 from fastapi import FastAPI, HTTPException
-import os
+import os, logging, json, httpx
 from pydantic import BaseModel
 from services.memory_tool import SharedMemoryManagerTool
 from services.custom_tools import request_solving_task
-from services.conversation_functions import talker_completion_request, store_belief_and_conversation, parse_reasoner_to_string
+from services.conversation_functions import talker_completion_request, store_belief_and_conversation, parse_reasoner_belief
 from langchain_openai import ChatOpenAI
-import logging
 from fastapi.responses import StreamingResponse
-import json
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -17,6 +15,7 @@ app = FastAPI(title="Talker API")
 MONGO_URL = os.environ["MONGO_URL"]
 LLM_URL = os.environ["LLM_URL"]
 LLM_API_KEY = os.environ["LLM_API_KEY"]
+REASONER_URL = os.environ['REASONER_URL']
 
 # Initialize shared memory tool
 memory_tool = SharedMemoryManagerTool(mongo_uri=MONGO_URL)
@@ -43,6 +42,22 @@ class InitializeSessionRequest(BaseModel):
     session_id: str
     system_content: str
 
+
+async def request_reasoning_to_reasoner(session_id: str):
+    """
+    Send a fire-and-forget request to the Reasoner API.
+    """
+    payload = {"session_id": session_id}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            # Send POST request but don't wait for the result
+            await client.post(REASONER_URL, json=payload)
+            # Log the request
+            logging.info(f"Fire-and-forget request sent to Reasoner API for session: {session_id}")
+        except Exception as e:
+            logging.error(f"Failed to send fire-and-forget request: {str(e)}")
+            
 # API Endpoints
 @app.post("/generate_response",
     summary="Generate Talker Response",
@@ -69,11 +84,22 @@ async def generate_response(request: GenerateResponseRequest):
     logging.info(f"Received request: session_id={session_id}, user_query={user_query}")
     try:
         # Fetch previous beliefs and conversation history
+        
         conversation_history = memory_tool.get_full_conversation(session_id=session_id)
         previous_beliefs = memory_tool.read_belief_state(session_id=session_id, num_to_retrieve=3)
-        reasoner_belief = parse_reasoner_to_string(previous_beliefs)
+        if not isinstance(conversation_history, list):
+            logging.error(f"conversation_history is not a list: {type(conversation_history)}")
+            raise ValueError("Invalid conversation_history format.")
+
+        if not isinstance(previous_beliefs, dict):
+            logging.error(f"previous_beliefs is not a dictionary: {type(previous_beliefs)}")
+            raise ValueError("Invalid previous_beliefs format.")
+
+        reasoner_belief = parse_reasoner_belief(previous_beliefs)
         reasoner_status = previous_beliefs['reasoner'][-1]['status']
 
+        if not conversation_history or not isinstance(conversation_history[0], dict):
+            raise ValueError("conversation_history[0] is not a valid dictionary.")
         # Update the first system message with the current belief state
         conversation_history[0]['content'] += f"\n\## Current_Belief_state:\n{reasoner_belief}"
         conversation_history.append({
@@ -108,7 +134,8 @@ async def generate_response(request: GenerateResponseRequest):
                 store_belief_and_conversation(
                     llm, memory_tool, session_id, user_query, previous_beliefs, updated_history, response_list
                 )
-
+                if len(response_list) == 3:
+                    await request_reasoning_to_reasoner(session_id)
         return StreamingResponse(response_stream(), media_type="text/event-stream")
 
 

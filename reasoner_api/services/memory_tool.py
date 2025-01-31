@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from transformers.agents import Tool
+from langchain_core.messages import AIMessage, ToolMessage
 from datetime import datetime
 from pytz import timezone
 class SharedMemoryManagerTool(Tool):
@@ -172,19 +173,10 @@ class SharedMemoryManagerTool(Tool):
 
         new_message = {
             "role": role,
+            "content": content,
             "timestamp": datetime.now(timezone('Asia/Seoul')).isoformat()
         }
-        if type(content) == str:
-            new_message.update({
-                'content' : content
-            })
-        elif type(content) == dict:
-            new_message.update(
-                **content
-            )
-        else:
-            raise TypeError("content should be string or dict type.")
-        
+
         try:
             self.convo_collection.update_one(
                 {"session_id": session_id},
@@ -205,6 +197,7 @@ class SharedMemoryManagerTool(Tool):
             recent_msgs = all_msgs[-num_to_retrieve:]
             if recent_msgs[0]['role'] != 'system':
                 recent_msgs = [{'role': 'system', 'content': self.get_persona(session_id=session_id)}] + recent_msgs
+            recent_msgs = self.parsing_message(recent_msgs)
             return recent_msgs
         except Exception as e:
             return f"Failed to retrieve recent messages: {str(e)}"
@@ -215,6 +208,7 @@ class SharedMemoryManagerTool(Tool):
             if not doc:
                 return "Session not found."
             messages = doc.get("conversations", [])
+            messages = self.parsing_message(messages)
             return messages
         except Exception as e:
             return f"Failed to retrieve full conversation: {str(e)}"
@@ -244,3 +238,24 @@ class SharedMemoryManagerTool(Tool):
             return f"Reasoner has started processing. beliefs: {beliefs}"
         except Exception as e:
             return f"Failed to update Reasoner: {str(e)}"
+    def parsing_message(self, messages: list):
+        for i, message in enumerate(messages):
+            if type(message['content']) == dict:
+                data = message['content']
+                if message['role'] == 'assistant':
+                    messages[i] = AIMessage(
+                        content=data['content'],
+                        additional_kwargs=data['additional_kwargs'],
+                        metadata=data.get('response_metadata', {}),
+                        tool_calls=data['tool_calls'],
+                    )
+                elif message['role'] == 'tool':
+                    messages[i] = ToolMessage(
+                        content=data['content'],
+                        name=data['name'],
+                        tool_call_id=data['tool_call_id'],
+                        metadata=data.get('response_metadata', {}),
+                        additional_kwargs=data['additional_kwargs'],
+                        status=data['status']
+                    )
+        return messages

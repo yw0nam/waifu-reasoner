@@ -34,7 +34,7 @@ services:
   talker-api:
     build: 
       context: ./talker_api/
-    container_name: test_talker-api
+    container_name: test_talker_api
     restart: always
     ports:
       - 5501:5501
@@ -42,8 +42,22 @@ services:
       - MONGO_URL=mongodb://root:1234@mongodb:27017
       - LLM_URL=http://vllm-openai:5500/v1
       - LLM_API_KEY=token-abc123
+      - REASONER_URL=http://reasoner-api:5502/start_reasoning
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5501", "--reload"]
-
+  reasoner-api:
+    build: 
+      context: ./reasoner_api/
+    container_name: test_reasoner_api
+    restart: always
+    expose:
+      - 5502
+    ports:
+      - 5502:5502
+    environment:
+      - MONGO_URL=mongodb://root:1234@mongodb:27017
+      - LLM_URL=http://vllm-openai:5500/v1
+      - LLM_API_KEY=token-abc123
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5502", "--reload"]
   mongodb:
     image: mongo:5.0.14
     container_name: test_mongodb
