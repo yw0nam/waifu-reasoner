@@ -1,3 +1,5 @@
 *.pyc
 *.wav
 *exp*
+.git/hooks/
+node_modules/

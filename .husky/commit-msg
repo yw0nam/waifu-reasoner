@@ -1,0 +1,4 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+python3 "$(dirname "$0")/scripts/validate-commit.py" "$1"

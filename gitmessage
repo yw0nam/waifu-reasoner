@@ -1,0 +1,26 @@
+# Git Commit Message Template
+# 
+# <type>(<scope>): <subject>
+#
+# <type>: Specifies the nature of the change. Common types include:
+#   feat     - A new feature
+#   fix      - A bug fix
+#   docs     - Documentation changes
+#   style    - Code style changes (formatting, missing semi-colons, etc.)
+#   refactor - Code refactoring without changing functionality
+#   test     - Adding or updating tests
+#   chore    - Routine tasks or maintenance
+#
+# <scope>: (Optional) The section of the codebase affected, such as `parser`, `UI`, or `database`.
+# <subject>: A short summary of the change (50 characters max).
+#
+# Body: (Optional) A more detailed explanation, wrapped at 72 characters per line.
+# Footer: (Optional) For referencing issues, breaking changes, or other notes.
+#
+# Example:
+# feat(parser): enhance syntax analysis for edge cases
+#
+# Improved the parser to handle previously unrecognized syntax patterns,
+# ensuring accurate analysis of complex code structures.
+#
+# Closes #456
